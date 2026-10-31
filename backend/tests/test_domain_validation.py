@@ -13,7 +13,7 @@ from backend.app.domain.models import (
     StudentGroup,
     Session,
     BookingCategory,
-    CATEGORY_WEIGHTS,
+    CAT_WEIGHT,
     ROLE_CATEGORY_CAPS,
 )
 from backend.app.validation.own_checker import check_schedule
@@ -22,24 +22,24 @@ from backend.app.validation.own_checker import check_schedule
 def test_slot_math_teaching_slots():
     """Verify teaching slot validity across lunch and period ranges."""
     # Normal 1-hour lectures
-    assert is_valid_teaching_slot("Monday", 1, 1) is True
-    assert is_valid_teaching_slot("Monday", 5, 1) is True
-    assert is_valid_teaching_slot("Monday", 6, 1) is True
-    assert is_valid_teaching_slot("Monday", 9, 1) is True
+    assert is_valid_teaching_slot("MON", 1, 1) is True
+    assert is_valid_teaching_slot("MON", 5, 1) is True
+    assert is_valid_teaching_slot("MON", 6, 1) is True
+    assert is_valid_teaching_slot("MON", 9, 1) is True
 
     # Out of teaching hours (P10)
-    assert is_valid_teaching_slot("Monday", 10, 1) is False
+    assert is_valid_teaching_slot("MON", 10, 1) is False
 
     # Straddling lunch break (starts at P5, duration 2 -> ends at P6)
-    assert is_valid_teaching_slot("Monday", 5, 2) is False
+    assert is_valid_teaching_slot("MON", 5, 2) is False
 
     # 3-hour labs (only allowed at P2 or P6)
-    assert is_valid_teaching_slot("Monday", 2, 3) is True  # P2, P3, P4
-    assert is_valid_teaching_slot("Monday", 6, 3) is True  # P6, P7, P8
-    assert is_valid_teaching_slot("Monday", 1, 3) is False
-    assert is_valid_teaching_slot("Monday", 3, 3) is False
-    assert is_valid_teaching_slot("Monday", 4, 3) is False
-    assert is_valid_teaching_slot("Monday", 7, 3) is False
+    assert is_valid_teaching_slot("MON", 2, 3) is True  # P2, P3, P4
+    assert is_valid_teaching_slot("MON", 6, 3) is True  # P6, P7, P8
+    assert is_valid_teaching_slot("MON", 1, 3) is False
+    assert is_valid_teaching_slot("MON", 3, 3) is False
+    assert is_valid_teaching_slot("MON", 4, 3) is False
+    assert is_valid_teaching_slot("MON", 7, 3) is False
 
 
 def test_exam_slots_count():
@@ -51,10 +51,10 @@ def test_exam_slots_count():
 
 def test_booking_category_weights_and_caps():
     """Test official weights and role caps."""
-    assert CATEGORY_WEIGHTS[BookingCategory.INSTITUTE] == 5
-    assert CATEGORY_WEIGHTS[BookingCategory.GUEST_LECTURE] == 4
-    assert CATEGORY_WEIGHTS[BookingCategory.DEPARTMENT] == 3
-    assert CATEGORY_WEIGHTS[BookingCategory.CLUB] == 2
+    assert CAT_WEIGHT["institute_event"] == 5
+    assert CAT_WEIGHT["guest_lecture"] == 4
+    assert CAT_WEIGHT["department_event"] == 3
+    assert CAT_WEIGHT["club_event"] == 2
 
     # Role caps
     assert ROLE_CATEGORY_CAPS["club_rep"] == BookingCategory.CLUB
@@ -80,7 +80,7 @@ def test_own_checker_detects_lunch_straddle():
         "timetable": [{
             "session_id": "S1", "course_code": "CS101", "session_type": "lecture",
             "group_id": "CS-1", "faculty_id": "F01", "room_id": "LH-1",
-            "day": "Monday", "start_period": 5, "duration": 2
+            "day": "MON", "start_period": 5, "duration": 2
         }],
     }
 
@@ -106,7 +106,7 @@ def test_own_checker_detects_room_capacity_violation():
         "timetable": [{
             "session_id": "S1", "course_code": "CS101", "session_type": "lecture",
             "group_id": "CS-1", "faculty_id": "F01", "room_id": "CR-101",
-            "day": "Monday", "start_period": 1, "duration": 1
+            "day": "MON", "start_period": 1, "duration": 1
         }],
     }
 

@@ -1,7 +1,6 @@
 """Dataset loader for CIT scheduling data."""
 
 import json
-import os
 from typing import Dict, Any, Tuple
 from pathlib import Path
 
@@ -32,7 +31,6 @@ def find_data_file(filename: str) -> Path:
     for p in candidates:
         if p.exists() and p.is_file():
             return p.resolve()
-    # If not found, return default path
     return Path(f"data/{filename}").resolve()
 
 
@@ -65,12 +63,12 @@ def parse_dataset(raw: Dict[str, Any]) -> Tuple[
         room = Room(
             id=r["id"],
             name=r.get("name", r["id"]),
+            building=r.get("building"),
             type=r["type"],
             capacity=r["capacity"],
             features=r.get("features", []),
             accessible=r.get("accessible", True),
-            allowed_uses=r.get("allowed_uses", ["teaching", "event", "exam"]),
-            maintenance_slots=r.get("maintenance_slots", []),
+            allowed_uses=r.get("allowed_uses", []),
         )
         rooms[room.id] = room
 
@@ -80,89 +78,104 @@ def parse_dataset(raw: Dict[str, Any]) -> Tuple[
             id=f["id"],
             name=f["name"],
             department=f["department"],
-            unavailable_slots=f.get("unavailable_slots", []),
-            avoid_times=f.get("avoid_times", []),
-            max_daily_hours=f.get("max_daily_hours", 4),
+            max_hours_per_day=f.get("max_hours_per_day", 4),
+            needs_accessible=f.get("needs_accessible", False),
+            unavailable=f.get("unavailable", []),
+            preferences=f.get("preferences", []),
         )
         faculty[fac.id] = fac
 
     groups: Dict[str, StudentGroup] = {}
-    for g in raw.get("groups", []):
+    raw_groups = raw.get("student_groups", []) or raw.get("groups", [])
+    for g in raw_groups:
         grp = StudentGroup(
             id=g["id"],
             name=g.get("name", g["id"]),
             department=g["department"],
             year=g["year"],
             size=g["size"],
+            needs_accessible=g.get("needs_accessible", False),
         )
         groups[grp.id] = grp
 
     courses: Dict[str, Course] = {}
     for c in raw.get("courses", []):
         crs = Course(
-            code=c["code"],
+            id=c["id"],
             title=c["title"],
             department=c["department"],
-            basket_id=c.get("basket_id"),
+            year=c.get("year", 1),
+            lecture_hours=c.get("lecture_hours", 0),
+            tutorial_hours=c.get("tutorial_hours", 0),
+            lab_blocks=c.get("lab_blocks", 0),
         )
-        courses[crs.code] = crs
+        courses[crs.id] = crs
 
     sessions: Dict[str, Session] = {}
     for s in raw.get("sessions", []):
         sess = Session(
             id=s["id"],
-            course_code=s["course_code"],
-            session_type=s.get("session_type", "lecture"),
-            group_id=s["group_id"],
+            course_id=s["course_id"],
+            kind=s.get("kind", "lecture"),
+            groups=s.get("groups", []),
             faculty_id=s["faculty_id"],
-            room_type=s["room_type"],
             size=s["size"],
             duration=s.get("duration", 1),
-            requires_accessible=s.get("requires_accessible", False),
-            is_fixed=s.get("is_fixed", False),
-            fixed_day=s.get("fixed_day"),
-            fixed_period=s.get("fixed_period"),
-            fixed_room=s.get("fixed_room"),
-            basket_id=s.get("basket_id"),
-            enrolled_groups=s.get("enrolled_groups", [s["group_id"]]),
+            room_types=s.get("room_types", []),
+            needs_accessible=s.get("needs_accessible", False),
+            basket_slot=s.get("basket_slot"),
+            fixed_slot=s.get("fixed_slot"),
         )
         sessions[sess.id] = sess
+
+    raw_cancellations = raw.get("cancellations", [])
+    cancellations = set()
+    for item in raw_cancellations:
+        if isinstance(item, dict):
+            cancellations.add(item.get("request_id"))
+        elif isinstance(item, str):
+            cancellations.add(item)
 
     bookings: Dict[str, BookingRequest] = {}
     for b in raw.get("booking_requests", []):
         windows = [
             BookingWindow(
                 day=w["day"],
-                start_period=w["start_period"],
-                end_period=w["end_period"],
+                from_period=w["from_period"],
+                to_period=w["to_period"],
             )
             for w in b.get("windows", [])
         ]
         breq = BookingRequest(
-            request_id=b["request_id"],
+            id=b["id"],
+            submitted_at=b["submitted_at"],
+            requester=b["requester"],
+            role=b["role"],
+            department=b.get("department"),
+            requested_category=b["requested_category"],
             title=b["title"],
-            category=b["category"],
-            requested_room=b.get("requested_room"),
-            room_types=b.get("room_types", []),
             attendance=b["attendance"],
             duration_periods=b["duration_periods"],
             windows=windows,
+            room_types=b.get("room_types", []),
             needs=b.get("needs", []),
-            accessible=b.get("accessible", False),
+            requested_room=b.get("requested_room"),
             mandatory_for_groups=b.get("mandatory_for_groups", []),
-            submitted_at=b["submitted_at"],
-            cancelled=b.get("cancelled", False),
+            series_id=b.get("series_id"),
+            raw_text=b.get("raw_text", ""),
+            cancelled=(b["id"] in cancellations),
         )
-        bookings[breq.request_id] = breq
+        bookings[breq.id] = breq
 
     exams: Dict[str, Exam] = {}
     for e in raw.get("exams", []):
         ex = Exam(
-            exam_id=e["exam_id"],
-            course_code=e["course_code"],
-            group_id=e["group_id"],
+            id=e["id"],
+            course_ids=e.get("course_ids", []),
+            groups=e.get("groups", []),
             size=e["size"],
+            duration_hours=e.get("duration_hours", 2),
         )
-        exams[ex.exam_id] = ex
+        exams[ex.id] = ex
 
     return rooms, faculty, groups, courses, sessions, bookings, exams

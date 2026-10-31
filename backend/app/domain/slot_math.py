@@ -1,10 +1,8 @@
 """Slot definitions and time conversion math for CIT Scheduler."""
 
-from enum import Enum
-from typing import NamedTuple
-
-DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-EXAM_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+DAYS = ["MON", "TUE", "WED", "THU", "FRI"]
+EXAM_DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
+EXAM_SESSIONS = ["AM", "PM"]
 
 TEACHING_PERIODS = list(range(1, 10))   # P1 .. P9
 EVENT_PERIODS = list(range(10, 14))     # P10 .. P13
@@ -14,15 +12,10 @@ LAB_ALLOWED_START_PERIODS = [2, 6]      # P2 ends at P4; P6 ends at P8
 LUNCH_PERIOD_BOUNDARY = 5               # P5 ends 13:00, lunch is 13:00-14:00, P6 starts 14:00
 
 EXAM_SLOTS = [
-    f"{day[:3].upper()}-{half}"
+    f"{day}-{half}"
     for day in EXAM_DAYS
-    for half in ["AM", "PM"]
-]  # 12 slots: MON-AM, MON-PM, ... SAT-PM
-
-
-class TimeSlot(NamedTuple):
-    day: str
-    period: int
+    for half in EXAM_SESSIONS
+]  # 12 slots: 'MON-AM', 'MON-PM', ... 'SAT-PM'
 
 
 def is_valid_teaching_slot(day: str, start_period: int, duration: int) -> bool:

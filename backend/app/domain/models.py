@@ -1,8 +1,19 @@
-"""Typed domain models for CIT campus scheduling and venue management."""
+"""Typed domain models matching cit_public.json and official validator.py."""
 
 from enum import Enum
-from typing import List, Dict, Optional, Set, Any
+from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
+
+DAYS = ["MON", "TUE", "WED", "THU", "FRI"]
+EXAM_DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
+EXAM_SESSIONS = ["AM", "PM"]
+
+TEACHING_PERIODS = list(range(1, 10))  # P1..P9
+EVENT_PERIODS = list(range(10, 14))    # P10..P13
+ALL_PERIODS = list(range(1, 14))       # P1..P13
+
+LAB_ALLOWED_START_PERIODS = [2, 6]     # P2 ends at P4; P6 ends at P8
+LUNCH_PERIOD_BOUNDARY = 5              # Between P5 and P6
 
 
 class RoomType(str, Enum):
@@ -19,165 +30,159 @@ class RoomType(str, Enum):
 
 
 class BookingCategory(str, Enum):
-    INSTITUTE = "institute"
+    INSTITUTE = "institute_event"
     GUEST_LECTURE = "guest_lecture"
-    DEPARTMENT = "department"
-    CLUB = "club"
+    DEPARTMENT = "department_event"
+    CLUB = "club_event"
 
 
-CATEGORY_PRIORITY: Dict[BookingCategory, int] = {
-    BookingCategory.INSTITUTE: 1,
-    BookingCategory.GUEST_LECTURE: 2,
-    BookingCategory.DEPARTMENT: 3,
-    BookingCategory.CLUB: 4,
+CAT_WEIGHT: Dict[str, int] = {
+    "institute_event": 5,
+    "guest_lecture": 4,
+    "department_event": 3,
+    "club_event": 2,
 }
 
-CATEGORY_WEIGHTS: Dict[BookingCategory, int] = {
-    BookingCategory.INSTITUTE: 5,
-    BookingCategory.GUEST_LECTURE: 4,
-    BookingCategory.DEPARTMENT: 3,
-    BookingCategory.CLUB: 2,
-}
-
-ROLE_CATEGORY_CAPS: Dict[str, BookingCategory] = {
-    "admin": BookingCategory.INSTITUTE,
-    "coordinator": BookingCategory.DEPARTMENT,
-    "faculty": BookingCategory.GUEST_LECTURE,
-    "club_rep": BookingCategory.CLUB,
+ROLE_CATEGORY_CAPS: Dict[str, str] = {
+    "admin": "institute_event",
+    "department_coordinator": "department_event",
+    "faculty": "guest_lecture",
+    "club": "club_event",
+    "coordinator": "department_event",
+    "club_rep": "club_event",
 }
 
 
 class Room(BaseModel):
     id: str
     name: str
-    type: str  # maps to RoomType values
+    building: Optional[str] = None
+    type: str
     capacity: int
-    features: List[str] = Field(default_factory=list)  # pa_system, projector, stage, computers, etc.
+    features: List[str] = Field(default_factory=list)
     accessible: bool = True
-    allowed_uses: List[str] = Field(default_factory=lambda: ["teaching", "event", "exam"])
-    maintenance_slots: List[Dict[str, Any]] = Field(default_factory=list)  # [{"day": "Thursday", "period": 1}]
+    allowed_uses: List[str] = Field(default_factory=list)
 
 
 class Faculty(BaseModel):
     id: str
     name: str
     department: str
-    unavailable_slots: List[Dict[str, Any]] = Field(default_factory=list)  # [{"day": "Friday", "period": 1}]
-    avoid_times: List[Dict[str, Any]] = Field(default_factory=list)        # [{"day": "Monday", "period": 9}]
-    max_daily_hours: int = 4
+    max_hours_per_day: int = 4
+    needs_accessible: bool = False
+    unavailable: List[Dict[str, Any]] = Field(default_factory=list)
+    preferences: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class StudentGroup(BaseModel):
     id: str
     name: str
-    department: str
     year: int
+    department: str
     size: int
+    needs_accessible: bool = False
 
 
 class Course(BaseModel):
-    code: str
+    id: str
     title: str
     department: str
-    basket_id: Optional[str] = None  # e.g. OEB-1, OEB-2, OEB-3
+    year: int
+    lecture_hours: int = 0
+    tutorial_hours: int = 0
+    lab_blocks: int = 0
 
 
 class Session(BaseModel):
     id: str
-    course_code: str
-    session_type: str  # lecture, tutorial, lab
-    group_id: str
+    course_id: str
+    kind: str  # lecture, tutorial, lab
+    groups: List[str]
     faculty_id: str
-    room_type: str
     size: int
-    duration: int = 1  # 1 for lecture/tutorial, 3 for lab
-    requires_accessible: bool = False
-    is_fixed: bool = False
-    fixed_day: Optional[str] = None
-    fixed_period: Optional[int] = None
-    fixed_room: Optional[str] = None
-    basket_id: Optional[str] = None
-    enrolled_groups: List[str] = Field(default_factory=list)  # for combined lectures e.g. ID101-ALL-L1
-
-
-class ScheduledSession(BaseModel):
-    session_id: str
-    course_code: str
-    session_type: str
-    group_id: str
-    faculty_id: str
-    room_id: str
-    day: str
-    start_period: int
-    duration: int
-
-
-class Exam(BaseModel):
-    exam_id: str
-    course_code: str
-    group_id: str
-    size: int
-
-
-class ScheduledExam(BaseModel):
-    exam_id: str
-    course_code: str
-    group_id: str
-    room_ids: List[str]
-    slot: str  # e.g. MON-AM
-    day: str
-    period: str  # AM or PM
-    size: int
+    duration: int = 1
+    room_types: List[str]
+    needs_accessible: bool = False
+    basket_slot: Optional[str] = None
+    fixed_slot: Optional[Dict[str, Any]] = None  # {"day": "MON", "period": 1, "room_id": "AUD"}
 
 
 class BookingWindow(BaseModel):
     day: str
-    start_period: int
-    end_period: int
+    from_period: int
+    to_period: int
 
 
 class BookingRequest(BaseModel):
-    request_id: str
+    id: str
+    submitted_at: str
+    requester: str
+    role: str
+    department: Optional[str] = None
+    requested_category: str
     title: str
-    category: str  # institute, guest_lecture, department, club
-    requested_room: Optional[str] = None
-    room_types: List[str] = Field(default_factory=list)
     attendance: int
     duration_periods: int
-    windows: List[BookingWindow] = Field(default_factory=list)
-    needs: List[str] = Field(default_factory=list)
-    accessible: bool = False
+    windows: List[BookingWindow]
+    room_types: List[str]
+    needs: List[str]
+    requested_room: Optional[str] = None
     mandatory_for_groups: List[str] = Field(default_factory=list)
-    submitted_at: str
+    series_id: Optional[str] = None
+    raw_text: str = ""
     cancelled: bool = False
 
 
-class BookingDecision(BaseModel):
+class Exam(BaseModel):
+    id: str
+    course_ids: List[str]
+    groups: List[str]
+    size: int
+    duration_hours: int = 2
+
+
+# --- Export Structures for schedule.json ---
+
+class SessionAssignment(BaseModel):
+    session_id: str
+    day: str
+    start_period: int
+    room_id: str
+
+
+class BookingDecisionExport(BaseModel):
     request_id: str
-    title: str
-    category: str
     status: str  # approved, rejected, alternative_offered
-    assigned_room: Optional[str] = None
-    assigned_day: Optional[str] = None
+    day: Optional[str] = None
     start_period: Optional[int] = None
     end_period: Optional[int] = None
-    reason: str
-    alternatives: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class DisruptionType(str, Enum):
-    FACULTY_UNAVAILABLE = "faculty_unavailable"
-    ROOM_UNAVAILABLE = "room_unavailable"
-    ADD_FACULTY = "add_faculty"
-    ADD_SESSION = "add_session"
-    REMOVE_SESSION = "remove_session"
-
-
-class DisruptionItem(BaseModel):
-    type: str
-    faculty_id: Optional[str] = None
     room_id: Optional[str] = None
-    day: Optional[str] = None
-    period: Optional[int] = None
-    session: Optional[Dict[str, Any]] = None
-    session_id: Optional[str] = None
+    reason: str
+
+
+class SessionOverrideExport(BaseModel):
+    session_id: str
+    day: str
+    start_period: int
+    room_id: str
+    displaced_by: str
+
+
+class ExamAssignmentExport(BaseModel):
+    exam_id: str
+    day: str
+    session: str  # AM or PM
+    rooms: List[str]
+
+
+class FestWeekExport(BaseModel):
+    bookings: List[BookingDecisionExport] = Field(default_factory=list)
+    session_overrides: List[SessionOverrideExport] = Field(default_factory=list)
+
+
+class ScheduleExport(BaseModel):
+    team: str = "CIT Automated Solver"
+    dataset_id: str = "cit-public-v1"
+    sessions: List[SessionAssignment] = Field(default_factory=list)
+    fest_week: FestWeekExport = Field(default_factory=FestWeekExport)
+    exams: List[ExamAssignmentExport] = Field(default_factory=list)
