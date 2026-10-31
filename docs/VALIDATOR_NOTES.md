@@ -1,146 +1,141 @@
 # CIT Scheduling & Venue Management - Official Validator Specifications
 
-> **Source of Truth Reference Document**
-> This document formalises all constraints, evaluation criteria, scoring metrics, and JSON export formats checked by the official hackathon validator (`validator.py`). All solvers and booking algorithms must adhere strictly to these definitions.
+> **Source of Truth Reference Document (Rewritten strictly from `data/validator.py` specification)**
+> This document details every validator rule code, hard constraint, soft penalty formula, exam scheduling check, deterministic booking evaluation rule, and exact `schedule.json` export schema.
 
 ---
 
-## 1. Hard Constraints (Feasibility - 25 Marks)
+## 1. Official Hard Constraint Rule Codes (H1 – H14)
 
-Any single hard violation deducts **3 marks** from scheduling correctness (25 marks max; down to 0). A valid schedule must achieve **0 hard violations**.
+Every single violation of an `H` constraint deducts **3 marks** from scheduling correctness (max 25, down to 0). A submission must have **0 hard violations**.
 
-| ID | Constraint Name | Description | Mathematical / Logic Rule |
-|----|-----------------|-------------|---------------------------|
-| **H1** | **Room Non-Overlap** | No room may host two sessions simultaneously. | $\forall r, \forall (s_1, s_2), \text{Overlap}(s_1, s_2) \implies s_1.room \neq s_2.room$ |
-| **H2** | **Faculty Non-Overlap** | No faculty may teach more than one session at any period. | $\forall f, \forall (s_1, s_2), \text{Overlap}(s_1, s_2) \implies s_1.faculty \neq s_2.faculty$ |
-| **H3** | **Group Non-Overlap** | No student group may attend more than one session at any period. | $\forall g, \forall (s_1, s_2), \text{Overlap}(s_1, s_2) \implies s_1.group \neq s_2.group$ |
-| **H4** | **Room Type Suitability** | Session must be placed in a room whose type matches the session's required `room_type`. | $s.room.type \in s.allowed\_room\_types$ (e.g. `computer_lab`, `physics_lab`, `auditorium`, `classroom`) |
-| **H5** | **Room Capacity (Teaching)** | Room capacity must accommodate enrolled students. | $s.room.capacity \ge s.enrolled\_count$ |
-| **H6** | **Accessibility Compliance** | If a session requires wheelchair accessibility, the assigned room must be accessible. | $s.requires\_accessible \implies s.room.is\_accessible = \text{True}$ |
-| **H7** | **Teaching Window** | Regular classes and labs may only run in teaching periods **P1 through P9**. | $s.start\_period \ge 1 \land (s.start\_period + s.duration - 1) \le 9$ (Periods P10–P13 are strictly reserved for events) |
-| **H8** | **Lunch Break Preservation** | No teaching session may straddle the institute lunch break (13:00–14:00, between P5 and P6). | $s.start\_period \le 5 \implies (s.start\_period + s.duration - 1) \le 5$ |
-| **H9** | **3-Hour Lab Slots** | 3-hour lab sessions may **only** start at **P2** (ending P4) or **P6** (ending P8). | $s.duration = 3 \implies s.start\_period \in \{2, 6\}$ |
-| **H10** | **Faculty Availability & Maintenance** | Sessions cannot be scheduled during faculty leave/unavailability or room maintenance windows. | $(s.day, p) \notin f.unavailable\_slots \land (s.day, p) \notin r.maintenance\_slots, \forall p \in [start, end]$ |
-| **H11** | **Faculty Daily Load** | A faculty member cannot exceed **4 hours** of teaching in a single day. | $\sum_{s \in \text{DaySessions}(f, d)} s.duration \le 4$ |
-| **H12** | **Fixed Slots** | All pre-assigned fixed slots in the dataset must be honoured as immutable constants. | $s.is\_fixed \implies s.day = s.fixed\_day \land s.start\_period = s.fixed\_period \land s.room = s.fixed\_room$ |
-| **H13** | **Elective Baskets** | All course sessions belonging to the same elective basket must share the exact same day and start period. | $\forall s_i, s_j \in \text{Basket}_k, s_i.day = s_j.day \land s_i.start\_period = s_j.start\_period$ (Student groups within the basket do not clash with each other, but clash with all other external sessions) |
-| **H14** | **Combined Lectures** | Combined lectures must reserve all participating student groups simultaneously. | Overlaps block $\bigcup g \in s.enrolled\_groups$ |
-| **H15** | **All Sessions Placed** | All 189 weekly sessions (243 teaching hours) must be scheduled exactly once. | $|\text{ScheduledSessions}| = 189$ with identical durations |
-
----
-
-## 2. Soft Constraint Penalties (Optimisation - 10 Marks)
-
-The solver minimises the total soft penalty. Exact weights enforced by `validator.py`:
-
-| Metric | Penalty Weight | Description | Calculation |
-|--------|----------------|-------------|-------------|
-| **S1** | **2 per hour** | Faculty avoided times | For each hour a faculty teaches in a slot listed in their `avoid_times` preference. |
-| **S2** | **1 per period** | Student group idle gaps | For each idle gap period between a student group's classes on a day (lunch between P5 and P6 is **not** counted as a gap). |
-| **S3** | **3 per hour** | Group daily load > 6h | For every teaching hour exceeding 6 hours for any student group on a single day. |
-| **S4** | **3 per extra lecture** | Same-course same-day lecture | When two lectures of the exact same course are placed on the same day for a group. |
-| **S5** | **1 per session** | Room under-utilisation (<40%) | When room capacity is significantly oversized ($s.enrolled\_count < 0.40 \times s.room.capacity$). |
-| **S6** | **1 per session** | Period P9 usage | Discourages scheduling classes into late period P9 (17:00–18:00). |
-| **S-Exam**| **5 per extra exam** | Multiple exams per group per day | Penalises placing more than 1 exam for the same student group on the same day. |
+| Code | Constraint Name | Official Validation Logic |
+|---|---|---|
+| **H1** | **Session Placed & Valid References** | Every one of the 189 sessions must appear **exactly once**. All referenced `session_id`, `course_code`, `faculty_id`, `group_id`, `room_id`, and `day` (`Monday`..`Friday`) must exist in the dataset. |
+| **H2** | **Faculty Clash** | No faculty member may be assigned to two sessions simultaneously: $\forall f, \text{sessions}(f, d, p) \le 1$. |
+| **H3** | **Group Clash** | No student group may attend more than one session at the same period. For elective baskets, all courses share a `basket_slot` key and are counted only once per group. |
+| **H4** | **Room Clash** | No room may host more than one session at any day and period: $\forall r, \text{sessions}(r, d, p) \le 1$. |
+| **H5** | **Capacity** | Assigned room capacity must be $\ge$ session enrolled student size ($r.capacity \ge s.size$). |
+| **H6** | **Room Type Match** | Assigned room type must match session required `room_type`. Real room types: `classroom`, `lecture_hall`, `auditorium`, `seminar_hall`, `outdoor`, `lab_cs`, `lab_elec`, `lab_phy`, `workshop`, `lab_civil`. |
+| **H7** | **Faculty Unavailable** | No session may be placed during a faculty member's unavailable slots (e.g. F08 on campus only Tue/Thu; F37 Dean free only Mon/Wed/Fri P3-P5; F21 not Fri). |
+| **H8** | **Room Unavailable** | No session may be placed during a room's maintenance/closure slots (e.g. LH-4 closed all Thu; CR-103 closed Fri P6-P9). |
+| **H9** | **Period, Lunch & Lab Restrictions** | 1. Teaching sessions must lie within **P1 to P9** ($1 \le p \le 9$).<br>2. Sessions must **not cross lunch** (P5 ends 13:00, lunch, P6 starts 14:00; consecutive numbering means crossing lunch between P5 and P6 is forbidden).<br>3. 3-hour lab sessions **must start only at P2 or P6**. |
+| **H10** | **Accessibility** | If a session requires wheelchair accessibility (e.g. ME-2 group sessions), the assigned room must have `accessible == true` (rules out CR-2xx and SH-2). |
+| **H11** | **Elective Basket Synchronization** | All courses in an elective basket (e.g. OEB-1/2/3 holding OE301/OE302/OE303) must be scheduled at the **exact same day and start period** in distinct rooms. |
+| **H12** | **Faculty Daily Maximum Load** | A faculty member may teach at most **4 hours** on any single day ($\sum_{s \in \text{Day}(f, d)} s.duration \le 4$). |
+| **H13** | **Booking Invalid / Conflict** | Approved booking must not conflict with regular timetable sessions, exams, or other approved bookings unless displaced by an authorized Institute Event override. |
+| **H14** | **Fixed Slots** | All pre-assigned fixed slots specified in the dataset must remain at their exact day, start period, and assigned room. |
 
 ---
 
-## 3. Definition of "Moved" Session (Rescheduling - 15 Marks)
+## 2. Official Exam Constraint Rule Codes (E1 – E2)
 
-In Phase 3 Rescheduling evaluation, the validator measures the number of moved sessions between `baseline` and `schedule_after`:
+Exams take place during the dedicated exam week across **12 slots** (Monday–Saturday $\times$ AM/PM: `MON-AM`, `MON-PM`, ..., `SAT-PM`).
 
-$$\text{is\_moved}(s) \iff (s.day \neq baseline[s].day) \lor (s.start\_period \neq baseline[s].start_period) \lor (s.room \neq baseline[s].room)$$
+| Code | Rule | Validation Logic |
+|---|---|---|
+| **E1** | **Exam Non-Overlap & Capacity** | 1. **Seats:** Sum of halved capacities must accommodate enrolled students: $\sum_{r \in \text{assigned\_rooms}} \lfloor r.capacity / 2 \rfloor \ge \text{size}$. Multi-room assignments are allowed (e.g. Year-1 size 360 requires AUD [250] + LH-1 [100] + 1 more room).<br>2. **Room Clash:** No room may host more than one exam in the same `(room, day, slot)` (AM/PM).<br>3. **Group Clash:** No student group may have two exams in the same slot.<br>*(Note: No faculty or room-type checks for exams).* |
+| **E2** | **Exam Room Eligibility** | Only rooms with `"exam"` in `allowed_uses` may be used for examinations (e.g. labs and outdoor amphitheatres cannot host exams). |
 
-### Critical Observations:
-1. **Room-Only Change Counts as Moved:** If a session stays at the same day and time but changes room, it **counts as a moved session**.
-2. **Time-Only Change Counts as Moved:** Day or start period change counts as moved.
-3. **New/Added Sessions Do NOT Count:** Newly added sessions resulting from disruptions do not count towards the "moved" metric.
-4. **Lexicographic Solver Objective:**
-   - Priority 1: Zero hard violations (feasibility).
-   - Priority 2: Minimise count of moved sessions ($M$).
-   - Priority 3: Minimise total soft penalty.
-   - Formally: $\text{Objective} = 10000 \times M + \text{SoftScore}$.
+### Exam Soft Penalty:
+- **5 marks per extra exam** of one group scheduled on the same day.
+- **Target:** Exactly **0** extra exams (at most 1 exam per student group per day).
 
 ---
 
-## 4. Booking Decisions & Score Formula (10 Marks)
+## 3. Official Booking Constraint Rule Codes (B1 – B3) & Evaluation
 
-The booking engine is 100% deterministic, resolving venue requests by institutional priority:
+### Validation Checks:
+| Code | Rule | Validation Logic |
+|---|---|---|
+| **B1** | **Valid Room & Features** | Room type must be in request's `room_types`; room must have `"event"` in `allowed_uses`; room capacity $\ge$ expected attendance; requested `needs` $\subseteq$ room `features` (+ `"accessible"` if required); room not in maintenance/unavailability. |
+| **B2** | **Clash Freedom** | No overlap with timetable teaching sessions (including week view with overrides), midsem exams, or other approved bookings. Mandatory groups must have no class during the booking. |
+| **B3** | **Window & Status Validity** | Status in export must be strictly `approved`, `rejected`, or `alternative_offered`. `approved` bookings must sit **fully inside one requested window** and end by **P13** ($b \le 13$). If placed outside the window, status **must be `alternative_offered`** (awards half score). |
 
-### Priority Hierarchy & Weights:
-| Category | Priority Rank | Weight | Description |
-|----------|---------------|--------|-------------|
-| **Exams** | Priority 1 | - | Midsem / Endsem examinations |
-| **Regular Classes** | Priority 2 | - | Mandatory academic timetable |
-| **Institute Events** | Priority 3 | 5 points | Convocation, Foundation Day, Annual Day |
-| **Guest Lectures** | Priority 4 | 4 points | Eminent speaker talks, workshops |
-| **Department Events** | Priority 5 | 3 points | Department seminars, hackathons, lab meets |
-| **Club Events** | Priority 6 | 2 points | Spectra cultural & tech club events |
+### Booking Priority Hierarchy & Weights:
+| Category | Priority | Score Weight | Description |
+|---|---|---|---|
+| **Institute Event** | 1 (Highest) | **5** | Convocation, Foundation Day (can override/move a regular class with Admin approval) |
+| **Guest Lecture** | 2 | **4** | Distinguished speakers, academic workshops |
+| **Department Event** | 3 | **3** | Department seminars, lab events |
+| **Club Event** | 4 (Lowest) | **2** | Spectra cultural & technical club events |
 
-### Booking Score Calculation:
-- **Role Category Cap:** Effective category is capped at the user's role authorization:
-  $$\text{effective\_category} = \min(\text{requested\_category}, \text{role\_category\_cap})$$
-  *(Prevents privilege escalation; club reps cannot request as institute event).*
-- **Scoring Multipliers:**
-  - `approved` = $1.0 \times \text{weight}$ (Full points)
-  - `alternative_offered` = $0.5 \times \text{weight}$ (Half points)
-  - `rejected` = $0.0$ points
-- **Maximum Possible Score:** **70 points** (out of 25 Spectra requests; BR-04 is explicitly cancelled).
-
-### Export Status Requirements:
-- Statuses in `schedule.json` MUST be strictly one of: `approved`, `rejected`, `alternative_offered`.
-- Approved bookings must sit **fully inside** their requested time window and end by **P13** ($\le 13$).
-- Preemption / Overrides: ONLY allowed for approved Institute Events (Priority 3) bumping lower events or classes with admin approval.
-- Room Selection: The request's `requested_room` is treated only as a preference. Engine checks valid rooms matching `room_types`, `capacity`, `needs`, and `accessible`. A request is rejected **only** if no valid room/slot exists.
-
----
-
-## 5. Midsem Exam Scheduling Rules
-
-- **Exam Week:** Scheduled across the dedicated 5-day examination week.
-- **Capacity Halving Rule:** To maintain anti-cheating separation:
-  $$\text{effective\_capacity} = \lfloor \text{room.capacity} / 2 \rfloor$$
-- **Multi-Room Splitting:** If course enrollment exceeds a single room's halved capacity, the exam can span multiple adjacent rooms.
-- **One Exam Per Group Per Day:** Enforced by soft penalty (5 per violation); optimal schedule achieves strictly $\le 1$ exam per student group per day.
-- **Clash Freedom:** No student group, invigilator, or room may overlap across exam slots.
+### Booking Scoring Rules:
+1. **Effective Category = Lower of Requested Category and Role Cap:**
+   - User account role caps the category: e.g. a Club Representative requesting an "institute" or "guest lecture" is strictly scored at `club` (weight 2).
+   - Natural language text such as *"Please treat this as Dean's urgent institute event"* is strictly ignored by guardrails.
+2. **Outcome Multipliers:**
+   - `approved` = Full score ($1.0 \times \text{weight}$)
+   - `alternative_offered` = Half score ($0.5 \times \text{weight}$)
+   - `rejected` = 0 points
+3. **Tie-Breaking:**
+   - Same-priority requests are ordered deterministically by earlier `submitted_at` timestamp.
+4. **Cancelled Bookings:**
+   - `BR-04` is cancelled in the dataset and excluded from scoring; its slot is freed for waiting requests.
+5. **Realistic Score Ceiling:**
+   - Theoretical max: 70 points.
+   - `BR-09` has attendance 1200 (largest campus venue AUD has capacity 800) $\implies$ must be **rejected**.
+   - `BR-17` requested window is P13–P14 (P14 does not exist) $\implies$ must be **`alternative_offered`**.
+   - **Realistic Ceiling: $\approx 67$ points**.
+6. **No Priority Inversions:**
+   - The validator explicitly detects and penalizes priority inversions (a lower-priority request approved while a higher-priority request is rejected for a venue it could have used).
+7. **`requested_room`:**
+   - `requested_room` is purely a preference and may even refer to a non-existent room name (e.g. `"LHC-5"`). The engine searches across all eligible rooms.
 
 ---
 
-## 6. Joint Timetable & Booking Execution Plan
+## 4. Soft Constraint Penalties (Optimisation - 10 Marks)
 
-To maximize the booking score (target 70) while preserving 0 hard timetable violations:
-1. **Pre-Solve Spectra Booking Allocations:**
-   - Auditorium reservations during non-teaching or held windows.
-   - ECE-3 Thursday P8 and one P9.
-   - CE-3 3-hour dedicated block.
-   - At least one Computer Science lab kept free from P8 onwards on Thursday & Friday.
-2. **Anchor Placements:**
-   - Anchor session `ID101` in Auditorium on Wednesday P3.
-3. **Hard Reservation Injection:** Pass the above reservations into CP-SAT as blocked room-time intervals before solving the weekly timetable. Relax reservations only if CP-SAT proves infeasibility.
+Calculated strictly according to the official validator definitions:
+
+| Penalty Metric | Exact Formula / Calculation |
+|---|---|
+| **S1: Avoided Slots** | **2 per hour** scheduled inside a faculty's avoided day/period. |
+| **S2: Group Idle Gaps** | **1 per period** per group-day: $(\text{last\_period} - \text{first\_period} + 1) - \text{occupied\_periods}$.<br>*(Lunch between P5 and P6 is contiguous in period indices and thus naturally not counted as a gap).* |
+| **S3: Group Daily Overload** | **3 per hour** above 6 teaching hours for a student group on a single day (elective baskets counted only once per group). |
+| **S4: Same-Course Lecture Clustering** | **3 per extra lecture** of the exact same course on the same day for a student group (elective basket: per course-day). |
+| **S5: Room Under-Utilisation** | **1 per session** where enrollment is under 40% of room capacity ($\text{size} / \text{capacity} < 0.4$). |
+| **S6: P9 Usage** | **1 per session** scheduled into late period P9 (17:00–18:00). |
+| **S-Exam: Extra Exams** | **5 per extra exam** of a student group on one day (target: 0). |
 
 ---
 
-## 7. Official `schedule.json` Export Specification
+## 5. Rescheduling Metric: Exact Definition of "Moved" (15 Marks)
 
-`validator.py` expects the following exact top-level JSON structure:
+In Phase 5 Rescheduling (`schedule_after.json` evaluated against `baseline`):
+
+$$\text{is\_moved}(s) \iff (s.day \neq baseline[s].day) \lor (s.start\_period \neq baseline[s].start\_period) \lor (s.room \neq baseline[s].room)$$
+
+### Essential Rescheduling Rules:
+1. **Room-Only Change Counts as 1:** Even if day and period are identical, changing only the room increments `moved` by 1.
+2. **Newly Added Sessions Do NOT Count:** Added sessions introduced in a disruption do not increment the `moved` count.
+3. **Lexicographic Objective:**
+   $$\text{Minimise } 10000 \times M + \text{TotalSoftPenalty}$$
+   Feasibility ($0 \text{ hard violations}$) is absolute prerequisite. Total moved sessions $M$ dominates soft penalty.
+4. **Overrides vs Dropping:**
+   Approved institute events may displace a regular session via `session_overrides`, but the displaced class **must be moved to a valid slot, never dropped**.
+
+---
+
+## 6. Official `schedule.json` Top-Level Schema
 
 ```json
 {
   "metadata": {
-    "generated_at": "2026-10-31T15:55:00Z",
+    "generated_at": "2026-10-31T16:00:00Z",
     "solver_status": "OPTIMAL",
     "hard_violations": 0,
-    "soft_penalty": 42,
+    "soft_penalty": 36,
     "moved_sessions_count": 0
   },
   "timetable": [
     {
-      "session_id": "CS101-L1",
+      "session_id": "CS101-ALL-L1",
       "course_code": "CS101",
       "session_type": "lecture",
-      "group_id": "G-CS-1",
-      "faculty_id": "FAC-01",
-      "room_id": "CR-101",
+      "group_id": "CS-1",
+      "faculty_id": "F01",
+      "room_id": "LH-1",
       "day": "Monday",
       "start_period": 1,
       "duration": 1
@@ -150,25 +145,25 @@ To maximize the booking score (target 70) while preserving 0 hard timetable viol
     {
       "exam_id": "EX-CS101",
       "course_code": "CS101",
-      "group_id": "G-CS-1",
-      "room_ids": ["CR-101", "CR-102"],
-      "invigilator_id": "FAC-05",
+      "group_id": "CS-1",
+      "room_ids": ["LH-1", "LH-2"],
+      "slot": "MON-AM",
       "day": "Monday",
-      "period": 2,
-      "enrolled": 45
+      "period": "AM",
+      "size": 180
     }
   ],
   "bookings": [
     {
       "request_id": "BR-01",
-      "title": "Robotics Workshop",
+      "title": "Robotics Orientation",
       "category": "club",
       "status": "approved",
-      "assigned_room": "AUD",
+      "assigned_room": "SH-1",
       "assigned_day": "Friday",
       "start_period": 10,
       "end_period": 12,
-      "reason": "Approved: Auditorium available for requested window P10-P12.",
+      "reason": "Approved: Seminar Hall 1 available inside window P10-P12.",
       "alternatives": []
     }
   ]
@@ -177,23 +172,22 @@ To maximize the booking score (target 70) while preserving 0 hard timetable viol
 
 ---
 
-## 8. Python Validator Execution Method
+## 7. Python Validator Execution
 
-Official validator interface:
+The official validator is never modified. It is imported and executed read-only:
+
 ```python
 from data.validator import run
 
-# Run signature:
-# run(data: dict, sched: dict, baseline: dict | None = None) -> dict
-results = run(cit_data, schedule_json, baseline_schedule)
+results = run(cit_data, schedule_json, baseline=baseline_schedule)
 # Returns:
 # {
 #   "hard_violations": [...],
 #   "hard_count": 0,
-#   "soft_penalty": 38,
-#   "soft_breakdown": {...},
+#   "soft_penalty": 36,
+#   "soft_breakdown": {"S1": 0, "S2": 12, "S3": 0, "S4": 0, "S5": 24, "S6": 0, "S_exam": 0},
 #   "moved_sessions": 0,
-#   "booking_score": 70.0,
+#   "booking_score": 67.0,
 #   "booking_breakdown": {...}
 # }
 ```
