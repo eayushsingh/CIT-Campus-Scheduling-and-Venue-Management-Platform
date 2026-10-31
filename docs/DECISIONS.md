@@ -23,3 +23,4 @@ This document records key architectural and design decisions made during develop
 **Date:** 2024-10-31
 **Decision:** Use SQLite for simplicity with a schema that can migrate to Postgres if needed.
 **Rationale:** Reduces deployment complexity. The dataset is small enough that SQLite handles it easily.
+

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  cit-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - APP_NAME=CIT Scheduler
+      - DEBUG=false
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - DATABASE_URL=sqlite:///./cit_scheduler.db
+      - CORS_ORIGINS=http://localhost:8000,http://localhost:5173
+    volumes:
+      - cit_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  cit_data:
