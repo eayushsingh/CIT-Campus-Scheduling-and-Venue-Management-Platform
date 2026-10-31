@@ -33,7 +33,31 @@ async def lifespan(app: FastAPI):
     init_db()
     seed_users()
     logger.info("Database initialised, demo users seeded.")
+
+    # Background keep-alive task to prevent free-tier containers from sleeping
+    import asyncio
+    keepalive_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("KEEPALIVE_URL")
+    keepalive_task = None
+
+    if keepalive_url:
+        async def _keep_alive():
+            ping_target = f"{keepalive_url.rstrip('/')}/api/health"
+            logger.info(f"Keep-alive ping daemon active targeting {ping_target}")
+            while True:
+                try:
+                    await asyncio.sleep(600)  # Ping every 10 minutes
+                    import httpx
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        await client.get(ping_target)
+                except Exception as e:
+                    logger.debug(f"Keep-alive ping error (harmless): {e}")
+
+        keepalive_task = asyncio.create_task(_keep_alive())
+
     yield
+
+    if keepalive_task:
+        keepalive_task.cancel()
     logger.info("Shutting down.")
 
 

@@ -44,7 +44,8 @@ The following AI assistants and developer tools were used during development:
 
 | Tool | Provider | Purpose / Scope |
 |------|----------|-----------------|
-| **Antigravity Coding Assistant** | Google DeepMind | Pair-programming, scaffolding project structure, writing CP-SAT models, implementing React components, and authoring automated tests. |
+| **Antigravity / Gemini Coding Assistant** | Google DeepMind | Pair-programming, scaffolding project structure, writing CP-SAT models, implementing React components, and authoring automated tests. |
+| **Claude Code (Anthropic)** | Anthropic | Architecture reviews, plan validation, and documentation generation. |
 | **Gemini 2.0 Flash API** | Google | Runtime inference testing for natural language booking parsing and intent extraction. |
 
 ---
