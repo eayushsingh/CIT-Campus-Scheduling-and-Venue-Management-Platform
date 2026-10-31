@@ -3,8 +3,10 @@ import React from 'react';
 export const LoadingSpinner: React.FC<{
   size?: 'sm' | 'md' | 'lg';
   label?: string;
+  message?: string;
   className?: string;
-}> = ({ size = 'md', label = 'Loading...', className = '' }) => {
+}> = ({ size = 'md', label, message, className = '' }) => {
+  const displayLabel = message || label || 'Loading...';
   const sizeClasses = {
     sm: 'w-4 h-4 border-2',
     md: 'w-8 h-8 border-3',
@@ -18,7 +20,7 @@ export const LoadingSpinner: React.FC<{
         role="status"
         aria-label="Loading"
       />
-      {label && <p className="text-sm font-medium text-slate-500">{label}</p>}
+      {displayLabel && <p className="text-sm font-medium text-slate-500">{displayLabel}</p>}
     </div>
   );
 };
