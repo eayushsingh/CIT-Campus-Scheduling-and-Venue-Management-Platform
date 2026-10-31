@@ -65,12 +65,16 @@ def run_official_validator(
         return {
             "hard_violations": hard_violations,
             "hard_count": hard_count,
-            "soft_penalty": result.get("soft_penalty", 0),
-            "soft_breakdown": result.get("soft_breakdown", {}),
-            "moved_sessions": result.get("moved_sessions", 0),
-            "booking_score": result.get("booking_score", 0.0),
-            "booking_breakdown": result.get("booking_breakdown", {}),
-            "priority_inversions": result.get("priority_inversions", []),
+            "soft_penalty": result.get("soft_total", result.get("soft_penalty", 0)),
+            "soft_total": result.get("soft_total", result.get("soft_penalty", 0)),
+            "soft_penalties": result.get("soft_penalties", {}),
+            "soft_breakdown": result.get("soft_penalties", {}),
+            "moved_sessions": result.get("stability", {}).get("sessions_moved", 0),
+            "stability": result.get("stability", {}),
+            "bookings": result.get("bookings", {}),
+            "booking_score": result.get("bookings", {}).get("booking_score", 0.0),
+            "booking_breakdown": result.get("bookings", {}),
+            "priority_inversions": result.get("bookings", {}).get("priority_inversions", []),
             "raw_result": result,
         }
     except Exception as e:
