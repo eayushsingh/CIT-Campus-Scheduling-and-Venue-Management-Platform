@@ -99,3 +99,4 @@ async def handle_faculty_request(text: str, faculty_id: str = "F01") -> Dict[str
         "summary": summary,
         "disruption": disruption,
     }
+

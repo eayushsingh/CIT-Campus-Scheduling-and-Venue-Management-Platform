@@ -85,3 +85,4 @@ All entity counts strictly match the hackathon ground truth:
 - **Impossible Capacity:** `BR-09` requests attendance 1,200 (largest campus venue OAT seats 800) $\implies$ must be deterministically rejected with clear reason.
 - **Invalid Window:** `BR-17` requested window is P13..P14 (P14 does not exist) $\implies$ cannot be approved inside requested window; engine must offer `alternative_offered`.
 - **Max Theoretical Score:** 70; **Realistic Score Ceiling:** $\approx 67.0$.
+

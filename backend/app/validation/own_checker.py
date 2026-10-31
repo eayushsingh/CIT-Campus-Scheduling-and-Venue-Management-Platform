@@ -358,3 +358,4 @@ def check_schedule(
         "soft_penalty": total_soft,
         "soft_breakdown": soft_breakdown,
     }
+

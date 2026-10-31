@@ -72,3 +72,4 @@ async def parse_booking_prompt(
             "input_hash": input_hash,
         },
     }
+

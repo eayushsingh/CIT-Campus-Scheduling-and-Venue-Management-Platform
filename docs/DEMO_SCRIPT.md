@@ -107,3 +107,4 @@
      ```
      Show **60 / 60 unit, domain, and adversarial prompt tests passing cleanly**.
    - Point to `AI_USAGE.md` and `THIRD_PARTY.md` documenting all models, open-source libraries, and prompt guardrails.
+

@@ -80,3 +80,4 @@ def explain_infeasible_disruption(
         "The proposed schedule changes are mathematically infeasible: the total required teaching hours "
         "exceed the combined conflict-free capacity of available rooms and faculty daily workload limits."
     )
+

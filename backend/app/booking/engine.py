@@ -332,3 +332,4 @@ class BookingEngine:
             "bookings": decisions,
             "session_overrides": session_overrides,
         }
+

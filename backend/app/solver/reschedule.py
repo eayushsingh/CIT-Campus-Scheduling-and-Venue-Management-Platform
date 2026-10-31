@@ -388,3 +388,4 @@ def reschedule(
     """Helper entry point for rescheduling."""
     rescheduler = Rescheduler(base_data, base_schedule, disruption, time_limit_seconds=time_limit_seconds)
     return rescheduler.re_solve()
+

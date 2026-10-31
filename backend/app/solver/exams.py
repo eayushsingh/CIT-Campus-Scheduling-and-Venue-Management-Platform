@@ -166,3 +166,4 @@ def generate_exams(raw_data: Dict[str, Any], time_limit_seconds: int = 30) -> Op
     """Helper entry point to generate exams schedule."""
     solver = ExamSolver(raw_data, time_limit_seconds=time_limit_seconds)
     return solver.solve()
+

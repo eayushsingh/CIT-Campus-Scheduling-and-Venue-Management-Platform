@@ -47,3 +47,4 @@ clean:
 	find . -type f -name "*.pyc" -delete
 	rm -rf .pytest_cache
 	rm -rf frontend/dist
+

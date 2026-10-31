@@ -77,3 +77,4 @@ async def test_adversarial_prompt_guardrails(prompt, role, expected_cat):
         elif "cr-2" in prompt.lower() or "cr-3" in prompt.lower():
             req = draft.get("requested_room")
             assert req is None or req.startswith("CR-1"), f"Upper floor room {req} must redirect to ground floor CR-1xx"
+

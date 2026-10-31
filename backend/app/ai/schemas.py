@@ -34,3 +34,4 @@ class DisruptionIntent(BaseModel):
     reason: str = ""
     target_day: Optional[str] = None
     target_period: Optional[int] = None
+
