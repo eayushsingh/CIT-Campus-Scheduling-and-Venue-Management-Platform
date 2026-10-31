@@ -123,6 +123,8 @@ def create_app() -> FastAPI:
     if not os.path.isdir(dist_dir):
         # Alternative path inside Docker container
         dist_dir = "/app/frontend/dist"
+    if not os.path.isdir(dist_dir):
+        dist_dir = os.path.abspath("frontend/dist")
 
     if os.path.isdir(dist_dir):
         logger.info(f"Serving frontend static assets from {dist_dir}")

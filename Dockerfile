@@ -31,8 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r ./backend/requirements.txt
 
-# Copy backend source code
+# Copy backend source code, starter pack data, and exports
 COPY backend/ ./backend/
+COPY data/ ./data/
+COPY exports/ ./exports/
 
 # Copy built frontend assets from stage 1
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
