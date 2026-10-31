@@ -13,6 +13,8 @@ import { ApprovalsPage } from './pages/ApprovalsPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoadingSpinner } from './components/LoadingSpinner';
+import { HealthBanner } from './components/HealthBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,49 +52,52 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
 
 export const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <HealthBanner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<DashboardPage />} />
-              <Route path="timetable" element={<TimetablePage />} />
-              <Route path="exams" element={<ExamsPage />} />
-              <Route path="bookings" element={<BookingsPage />} />
-              <Route path="disruptions" element={<DisruptionsPage />} />
               <Route
-                path="approvals"
+                path="/"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'coordinator']}>
-                    <ApprovalsPage />
+                  <ProtectedRoute>
+                    <Layout />
                   </ProtectedRoute>
                 }
-              />
-              <Route path="assistant" element={<AssistantPage />} />
-              <Route
-                path="admin"
-                element={
-                  <ProtectedRoute allowedRoles={['admin']}>
-                    <AdminPage />
-                  </ProtectedRoute>
-                }
-              />
-            </Route>
+              >
+                <Route index element={<DashboardPage />} />
+                <Route path="timetable" element={<TimetablePage />} />
+                <Route path="exams" element={<ExamsPage />} />
+                <Route path="bookings" element={<BookingsPage />} />
+                <Route path="disruptions" element={<DisruptionsPage />} />
+                <Route
+                  path="approvals"
+                  element={
+                    <ProtectedRoute allowedRoles={['admin', 'coordinator']}>
+                      <ApprovalsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="assistant" element={<AssistantPage />} />
+                <Route
+                  path="admin"
+                  element={
+                    <ProtectedRoute allowedRoles={['admin']}>
+                      <AdminPage />
+                    </ProtectedRoute>
+                  }
+                />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

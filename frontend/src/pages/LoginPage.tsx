@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, DemoAccount } from '../state/AuthContext';
 import { apiClient } from '../api/client';
-import { Shield, UserCheck, Users, School, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Shield, UserCheck, Users, School, ArrowRight, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 export const LoginPage: React.FC = () => {
@@ -13,6 +13,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastAction, setLastAction] = useState<(() => Promise<void>) | null>(null);
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
   const [demoLoading, setDemoLoading] = useState(true);
 
@@ -27,7 +28,7 @@ export const LoginPage: React.FC = () => {
   useEffect(() => {
     const fetchDemoAccounts = async () => {
       try {
-        const res = await apiClient.get<DemoAccount[]>('/auth/demo-accounts');
+        const res = await apiClient.get<DemoAccount[]>('/auth/demo-accounts', { timeout: 8000 });
         setDemoAccounts(res.data);
       } catch (err) {
         // Fallback default demo accounts
@@ -64,18 +65,20 @@ export const LoginPage: React.FC = () => {
     fetchDemoAccounts();
   }, []);
 
-  const handleManualLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleManualLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setError(null);
     setLoading(true);
+    setLastAction(() => () => handleManualLogin());
     try {
       await login(username, password);
       navigate('/');
     } catch (err: any) {
       setError(
+        err.userMessage ||
         err.response?.data?.message ||
-          err.response?.data?.detail?.message ||
-          'Failed to sign in. Please verify your credentials.'
+        err.response?.data?.detail?.message ||
+        'Server is waking up, retry in a few seconds.'
       );
     } finally {
       setLoading(false);
@@ -85,14 +88,16 @@ export const LoginPage: React.FC = () => {
   const handleDemoClick = async (account: DemoAccount) => {
     setError(null);
     setLoading(true);
+    setLastAction(() => () => handleDemoClick(account));
     try {
       await loginAsDemo(account);
       navigate('/');
     } catch (err: any) {
       setError(
+        err.userMessage ||
         err.response?.data?.message ||
-          err.response?.data?.detail?.message ||
-          'Failed to sign in with demo account.'
+        err.response?.data?.detail?.message ||
+        'Server is waking up, retry in a few seconds.'
       );
     } finally {
       setLoading(false);
@@ -203,9 +208,24 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start space-x-2">
-              <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm space-y-2">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                <span className="leading-snug">{error}</span>
+              </div>
+              {lastAction && (
+                <div className="pt-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => lastAction()}
+                    disabled={loading}
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 bg-white hover:bg-red-100 text-red-700 border border-red-300 rounded-lg text-xs font-semibold shadow-sm transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                    <span>Retry</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

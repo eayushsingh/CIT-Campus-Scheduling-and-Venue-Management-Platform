@@ -1,5 +1,6 @@
 """CIT Scheduler - FastAPI application entry point."""
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
     app.include_router(export_router)
 
     # Health check (no auth)
+    @app.get("/health", tags=["health"])
     @app.get("/api/health", tags=["health"])
     async def health():
         return {
